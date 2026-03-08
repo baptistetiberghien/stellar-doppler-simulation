@@ -7,28 +7,31 @@ const props = defineProps<{
   result: SimulationResult | null;
 }>();
 
-const SIZE = 260;
-const CX = SIZE / 2;
-const CY = SIZE / 2;
-const R = SIZE / 2 - 14;
+// ── Main disk layout ──
+const W = 300;
+const H = 420;
+const CX = W / 2;
+const CY = 150;
+const R = 105;
 
-// Client-side spot projection (same maths as backend activity.py)
-// so the spot moves at 60fps without waiting for the API response.
+const incRad = computed(() => (props.params.inclination_deg * Math.PI) / 180);
+
+// ── Spot projection (FIXED: matches velocity convention) ──
+// i=0° → pole-on, i=90° → equator-on
 const spotLocal = computed(() => {
-  const lonRad = (props.params.spot_lon_deg * Math.PI) / 180;
-  const latRad = (props.params.spot_lat_deg * Math.PI) / 180;
-  const incRad = (props.params.inclination_deg * Math.PI) / 180;
+  const lon = (props.params.spot_lon_deg * Math.PI) / 180;
+  const lat = (props.params.spot_lat_deg * Math.PI) / 180;
+  const inc = incRad.value;
 
-  const xs = Math.cos(latRad) * Math.sin(lonRad);
-  const ys = Math.sin(latRad);
-  const zs = Math.cos(latRad) * Math.cos(lonRad);
+  const xs = Math.cos(lat) * Math.sin(lon);
+  const ys = Math.sin(lat);
+  const zs = Math.cos(lat) * Math.cos(lon);
 
   const xProj = xs;
-  const yProj = ys * Math.cos(incRad) - zs * Math.sin(incRad);
-  const zProj = ys * Math.sin(incRad) + zs * Math.cos(incRad);
+  const yProj = ys * Math.sin(inc) - zs * Math.cos(inc);
+  const zProj = ys * Math.cos(inc) + zs * Math.sin(inc);
 
   if (zProj <= 0) return null;
-
   return {
     cx: CX + xProj * R,
     cy: CY - yProj * R,
@@ -36,51 +39,162 @@ const spotLocal = computed(() => {
   };
 });
 
-const incRad = computed(() => (props.params.inclination_deg * Math.PI) / 180);
-
+// ── Projected rotation axis ──
+// Projected length on the sky plane ∝ sin(i):
+//   i=0° (pole-on)    → axis is along LOS → projected length = 0
+//   i=90° (equator-on) → axis in sky plane → full length
+const axisProjLen = computed(() => R * Math.sin(incRad.value));
+const axisExtend = 1.18;
 const axisTop = computed(() => ({
   x: CX,
-  y: CY - R * Math.cos(incRad.value) * 1.15,
+  y: CY - axisProjLen.value * axisExtend,
 }));
-
 const axisBot = computed(() => ({
   x: CX,
-  y: CY + R * Math.cos(incRad.value) * 1.15,
+  y: CY + axisProjLen.value * axisExtend,
 }));
+const showAxis = computed(() => props.params.inclination_deg > 3);
+const polePad = 12;
+
+// ── Rotation direction arrow (curved, above the disk) ──
+const rotR = R + 12;
+const rotArc = computed(() => {
+  const a1 = Math.PI * 0.7;
+  const a2 = Math.PI * 0.3;
+  const s = { x: CX + rotR * Math.cos(a1), y: CY + rotR * Math.sin(a1) };
+  const e = { x: CX + rotR * Math.cos(a2), y: CY + rotR * Math.sin(a2) };
+  return `M ${s.x} ${s.y} A ${rotR} ${rotR} 0 0 0 ${e.x} ${e.y}`;
+});
+
+// ── Side-view schematic (below the main disk) ──
+const svCX = W / 2;
+const svCY = 335;
+const svR = 28;
+const svArrowLen = 55;
+
+// Rotation axis direction in side-view (from center, tilted by i from vertical)
+const svAxisTip = computed(() => ({
+  x: svCX + svR * 1.6 * Math.sin(incRad.value),
+  y: svCY - svR * 1.6 * Math.cos(incRad.value),
+}));
+// Inclination arc in side-view
+const svIncArc = computed(() => {
+  const r = 20;
+  const a = incRad.value;
+  if (a < 0.05) return null;
+  const x1 = svCX;
+  const y1 = svCY - r;
+  const x2 = svCX + r * Math.sin(a);
+  const y2 = svCY - r * Math.cos(a);
+  return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
+});
+const svIncLabel = computed(() => {
+  const r = 28;
+  const a = incRad.value / 2;
+  return {
+    x: svCX + r * Math.sin(a) + 4,
+    y: svCY - r * Math.cos(a) + 4,
+  };
+});
 </script>
 
 <template>
-  <svg :width="SIZE" :height="SIZE" :viewBox="`0 0 ${SIZE} ${SIZE}`" class="star-view">
+  <svg :width="W" :height="H" :viewBox="`0 0 ${W} ${H}`" class="star-view">
     <defs>
       <linearGradient id="dopplerGrad" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stop-color="#4488ff" stop-opacity="0.35" />
+        <stop offset="0%" stop-color="#4488ff" stop-opacity="0.30" />
         <stop offset="50%" stop-color="#ffffff" stop-opacity="0" />
-        <stop offset="100%" stop-color="#ff4444" stop-opacity="0.35" />
+        <stop offset="100%" stop-color="#ff4444" stop-opacity="0.30" />
       </linearGradient>
       <radialGradient id="limbGrad" cx="50%" cy="50%" r="50%">
         <stop offset="0%" stop-color="#fff8e0" />
-        <stop offset="60%" stop-color="#ffe066" />
+        <stop offset="55%" stop-color="#ffe066" />
         <stop offset="100%" stop-color="#c68a00" />
       </radialGradient>
+      <marker id="arrRot" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+        <polygon points="0 0, 7 2.5, 0 5" fill="#aaa" />
+      </marker>
+      <marker id="arrAxis" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
+        <polygon points="0 0.5, 6 2.5, 0 4.5" fill="#ccc" />
+      </marker>
+      <marker id="arrBlue" markerWidth="6" markerHeight="5" refX="0" refY="2.5" orient="auto">
+        <polygon points="6 0.5, 0 2.5, 6 4.5" fill="#5599ff" />
+      </marker>
     </defs>
 
-    <!-- Stellar disk -->
+    <!-- ════════════ MAIN STAR DISK ════════════ -->
     <circle :cx="CX" :cy="CY" :r="R" fill="url(#limbGrad)" />
     <circle :cx="CX" :cy="CY" :r="R" fill="url(#dopplerGrad)" />
 
-    <!-- Rotation axis -->
-    <line
+    <!-- Rotation axis (dashed, visible only when projected) -->
+    <line v-if="showAxis"
       :x1="axisTop.x" :y1="axisTop.y"
       :x2="axisBot.x" :y2="axisBot.y"
-      stroke="#ffffff88" stroke-width="1.5" stroke-dasharray="5,4"
+      stroke="#ffffffbb" stroke-width="1.5" stroke-dasharray="5,4"
     />
+    <!-- Pole labels -->
+    <text v-if="showAxis" :x="axisTop.x + 10" :y="axisTop.y - 2"
+      text-anchor="start" class="label-pole">N</text>
+    <text v-if="showAxis" :x="axisBot.x + 10" :y="axisBot.y + 4"
+      text-anchor="start" class="label-pole">S</text>
 
-    <!-- Spot (computed locally — instant response) -->
-    <circle
-      v-if="spotLocal"
+    <!-- Rotation arrow Ω -->
+    <path :d="rotArc" fill="none" stroke="#aaa" stroke-width="1" marker-end="url(#arrRot)" opacity="0.55" />
+    <text :x="CX + R + 4" :y="CY - R - 10" text-anchor="start" class="label-omega">Ω</text>
+
+    <!-- Doppler labels -->
+    <text :x="CX - R - 6" :y="CY + 4" text-anchor="end" class="label-blue">← blue</text>
+    <text :x="CX + R + 6" :y="CY + 4" text-anchor="start" class="label-red">red →</text>
+
+    <!-- Spot -->
+    <circle v-if="spotLocal"
       :cx="spotLocal.cx" :cy="spotLocal.cy" :r="spotLocal.r"
       fill="#222" fill-opacity="0.85" stroke="#111" stroke-width="1"
     />
+
+    <!-- ════════════ SEPARATOR ════════════ -->
+    <line :x1="20" :y1="280" :x2="W - 20" :y2="280"
+      stroke="#333" stroke-width="0.5" />
+    <text :x="W / 2" :y="295" text-anchor="middle" class="label-section">
+      Side view (geometry)
+    </text>
+
+    <!-- ════════════ SIDE-VIEW SCHEMATIC ════════════ -->
+    <!-- Star (small circle) -->
+    <circle :cx="svCX" :cy="svCY" :r="svR"
+      fill="none" stroke="#ffe066" stroke-width="1.5" opacity="0.6" />
+
+    <!-- LOS arrow (observer → star, coming from below) -->
+    <line :x1="svCX" :y1="svCY + svArrowLen" :x2="svCX" :y2="svCY + svR + 4"
+      stroke="#6ea8fe" stroke-width="1.5" marker-end="url(#arrAxis)" />
+    <text :x="svCX + 2" :y="svCY + svArrowLen + 14" text-anchor="middle" class="label-observer">
+      Observer
+    </text>
+    <!-- LOS label -->
+    <text :x="svCX - 14" :y="svCY + svArrowLen - 10" text-anchor="end" class="label-los">LOS</text>
+
+    <!-- Rotation axis (tilted by i from LOS / vertical) -->
+    <line :x1="svCX" :y1="svCY"
+      :x2="svAxisTip.x" :y2="svAxisTip.y"
+      stroke="#ffffffbb" stroke-width="1.5" stroke-dasharray="4,3" />
+    <!-- N label at tip -->
+    <text :x="svAxisTip.x + 8" :y="svAxisTip.y - 2" text-anchor="start" class="label-pole-sm">N</text>
+
+    <!-- Inclination arc -->
+    <path v-if="svIncArc" :d="svIncArc"
+      fill="none" stroke="#6ea8fe" stroke-width="1.2" opacity="0.8" />
+    <!-- Inclination label -->
+    <text v-if="params.inclination_deg > 3"
+      :x="svIncLabel.x" :y="svIncLabel.y"
+      text-anchor="start" class="label-inc">
+      i={{ Math.round(params.inclination_deg) }}°
+    </text>
+    <!-- Annotation for i=0 -->
+    <text v-if="params.inclination_deg <= 3"
+      :x="svCX + 30" :y="svCY - 20"
+      text-anchor="start" class="label-inc">
+      i≈0° (pole-on)
+    </text>
   </svg>
 </template>
 
@@ -91,4 +205,13 @@ const axisBot = computed(() => ({
   max-width: 100%;
   height: auto;
 }
+.label-pole     { font: bold 11px sans-serif; fill: #ccc; }
+.label-pole-sm  { font: bold 10px sans-serif; fill: #ccc; }
+.label-omega    { font: bold 14px serif; fill: #aaa; }
+.label-blue     { font: 10px sans-serif; fill: #5599ff; }
+.label-red      { font: 10px sans-serif; fill: #ff6666; }
+.label-section  { font: italic 10px sans-serif; fill: #666; }
+.label-observer { font: 11px sans-serif; fill: #6ea8fe; }
+.label-los      { font: 10px sans-serif; fill: #6ea8fe; opacity: 0.7; }
+.label-inc      { font: 11px monospace; fill: #6ea8fe; }
 </style>
