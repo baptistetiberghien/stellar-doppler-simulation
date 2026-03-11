@@ -95,10 +95,10 @@ onMounted(fetchSimulation);
 .plot-area {
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-height: 120px;
 }
-.spectrum-area { flex: 55; }
-.residual-area { flex: 35; }
+.spectrum-area { flex: 3; }
+.residual-area { flex: 2; }
 
 .residual-caption {
   font-size: 11px;

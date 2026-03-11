@@ -152,11 +152,7 @@ onMounted(() => {
 
 onUnmounted(() => resizeObserver.disconnect());
 
-watch(
-  [() => props.result, () => props.refSpectrum, width, height],
-  () => requestAnimationFrame(drawPlot),
-  { deep: true },
-);
+watch([() => props.result, () => props.refSpectrum, width, height], drawPlot, { flush: "post" });
 </script>
 
 <template>

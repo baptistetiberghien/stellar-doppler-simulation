@@ -134,9 +134,9 @@ onMounted(fetchSimulation);
   font-size: 11px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.5px; color: #556; margin-top: 4px;
 }
-.plot-area { display: flex; flex-direction: column; min-height: 0; }
-.spectrum-area { flex: 55; }
-.residual-area { flex: 35; }
+.plot-area { display: flex; flex-direction: column; min-height: 120px; }
+.spectrum-area { flex: 3; }
+.residual-area { flex: 2; }
 
 .info-toggle {
   align-self: flex-start;

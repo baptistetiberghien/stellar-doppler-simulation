@@ -1,4 +1,4 @@
-import { reactive, ref, watch, nextTick, type Ref } from "vue";
+import { reactive, ref, watch, type Ref } from "vue";
 import {
   DEFAULT_PARAMS,
   type SimulationParams,
@@ -14,15 +14,12 @@ export function useSimulation() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
+  // ── Main spectrum fetch (single-flight) ──
   let inFlight = false;
   let dirty = false;
 
   async function doFetch(): Promise<void> {
-    if (inFlight) {
-      dirty = true;
-      return;
-    }
-
+    if (inFlight) { dirty = true; return; }
     inFlight = true;
     dirty = false;
     loading.value = true;
@@ -42,59 +39,49 @@ export function useSimulation() {
       inFlight = false;
       loading.value = false;
     }
-
     if (dirty) doFetch();
   }
 
-  // Reference spectrum: same star, negligible spot.
-  // Cached — only re-fetched when stellar params (other than lon) change.
+  // ── Reference spectrum (no spot, cached) ──
   let refInFlight = false;
   let refDirty = false;
-  let refParamsKey = "";
+  let refKey = "";
 
   async function fetchRef(): Promise<void> {
     const { spot_lon_deg: _, ...rest } = params;
-    const key = JSON.stringify({ ...rest, spot_radius: 0.01 });
-    if (key === refParamsKey && refSpectrum.value) return;
+    const key = JSON.stringify(rest);
+    if (key === refKey && refSpectrum.value) return;
 
-    if (refInFlight) {
-      refDirty = true;
-      return;
-    }
+    if (refInFlight) { refDirty = true; return; }
     refInFlight = true;
     refDirty = false;
 
     try {
-      const refParams = { ...params, spot_radius: 0.01 };
       const res = await fetch(`${API_URL}/simulate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(refParams),
+        body: JSON.stringify({ ...params, spot_radius: 0.01 }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) return;
       refSpectrum.value = await res.json();
-      refParamsKey = key;
-    } catch {
-      // ignore — residual plot will simply stay blank
-    } finally {
+      refKey = key;
+    } catch { /* ignore */ } finally {
       refInFlight = false;
     }
     if (refDirty) fetchRef();
   }
 
+  // Watcher 1: any param change → fetch main spectrum
+  watch(() => JSON.stringify(params), () => {
+    if (inFlight) { dirty = true; } else { doFetch(); }
+  });
+
+  // Watcher 2: stellar params (excl. longitude) → fetch ref; immediate for initial load
   watch(
-    () => JSON.stringify(params),
-    async () => {
-      if (inFlight) {
-        dirty = true;
-      } else {
-        doFetch();
-      }
-      // Always ensure refSpectrum exists
-      await nextTick();
-      fetchRef();
-    },
+    () => { const { spot_lon_deg: _, ...rest } = params; return JSON.stringify(rest); },
+    () => fetchRef(),
+    { immediate: true },
   );
 
-  return { params, result, refSpectrum, loading, error, fetchSimulation: doFetch, fetchRef };
+  return { params, result, refSpectrum, loading, error, fetchSimulation: doFetch };
 }
