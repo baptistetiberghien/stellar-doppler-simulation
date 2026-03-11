@@ -18,7 +18,10 @@ export function useMultiSpotSimulation() {
   let dirty = false;
 
   async function doFetch(): Promise<void> {
-    if (inFlight) { dirty = true; return; }
+    if (inFlight) {
+      dirty = true;
+      return;
+    }
     inFlight = true;
     dirty = false;
     loading.value = true;
@@ -50,34 +53,83 @@ export function useMultiSpotSimulation() {
     const key = JSON.stringify(rest);
     if (key === refKey && refSpectrum.value) return;
 
-    if (refInFlight) { refDirty = true; return; }
+    if (refInFlight) {
+      refDirty = true;
+      return;
+    }
+
     refInFlight = true;
     refDirty = false;
 
     try {
+      const payload = {
+        ...params,
+        rotation_phase: 0,
+        n_spots: 1,
+        min_spot_radius: 0.02,
+        max_spot_radius: 0.05,
+      };
+
+      console.log("[fetchRef] API_URL", API_URL);
+      console.log("[fetchRef] payload", payload);
+
       const res = await fetch(`${API_URL}/simulate-multispot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...params, n_spots: 1, min_spot_radius: 0.02, max_spot_radius: 0.02 }),
+        body: JSON.stringify(payload),
       });
-      if (!res.ok) return;
-      refSpectrum.value = await res.json();
+
+      console.log("[fetchRef] status", res.status);
+
+      const text = await res.text();
+      console.log("[fetchRef] raw response", text);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+
+      const data = JSON.parse(text);
+      console.log("[fetchRef] parsed data", data);
+
+      refSpectrum.value = data;
       refKey = key;
-    } catch { /* ignore */ } finally {
+
+      console.log("[fetchRef] refSpectrum.value", refSpectrum.value);
+    } catch (e) {
+      console.error("[fetchRef] error", e);
+    } finally {
       refInFlight = false;
     }
+
     if (refDirty) fetchRef();
   }
 
-  watch(() => JSON.stringify(params), () => {
-    if (inFlight) { dirty = true; } else { doFetch(); }
-  });
+  watch(
+    () => JSON.stringify(params),
+    () => {
+      if (inFlight) {
+        dirty = true;
+      } else {
+        doFetch();
+      }
+    },
+  );
 
   watch(
-    () => { const { rotation_phase: _, ...rest } = params; return JSON.stringify(rest); },
+    () => {
+      const { rotation_phase: _, ...rest } = params;
+      return JSON.stringify(rest);
+    },
     () => fetchRef(),
     { immediate: true },
   );
 
-  return { params, result, refSpectrum, loading, error, fetchSimulation: doFetch };
+  return {
+    params,
+    result,
+    refSpectrum,
+    loading,
+    error,
+    fetchSimulation: doFetch,
+  };
 }
