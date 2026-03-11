@@ -18,19 +18,26 @@ function drawPlot() {
   const ctx = canvas.value?.getContext("2d");
   if (!ctx || !props.result || !props.refSpectrum) return;
 
-  const { wavelength, flux } = props.result;
+  const wavelength = props.result.wavelength;
+  const flux = props.result.flux;
   const refFlux = props.refSpectrum.flux;
   const n = wavelength.length;
   if (n < 2 || refFlux.length !== n) return;
 
+  const xMin = wavelength[0]!;
+  const xMax = wavelength[n - 1]!;
+
   // R(λ) = F(λ) - F_ref(λ)
-  const residual = new Array<number>(n);
+  const residual: number[] = new Array(n);
   let rMin = Infinity;
   let rMax = -Infinity;
   for (let i = 0; i < n; i++) {
-    residual[i] = flux[i] - refFlux[i];
-    if (residual[i] < rMin) rMin = residual[i];
-    if (residual[i] > rMax) rMax = residual[i];
+    const f = flux[i] ?? 0;
+    const rf = refFlux[i] ?? 0;
+    const r = f - rf;
+    residual[i] = r;
+    if (r < rMin) rMin = r;
+    if (r > rMax) rMax = r;
   }
 
   // Symmetric y-range centred on 0 with a minimum extent
@@ -49,11 +56,12 @@ function drawPlot() {
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
 
-  const xMin = wavelength[0];
-  const xMax = wavelength[n - 1];
-
-  function toX(v: number) { return PAD.left + ((v - xMin) / (xMax - xMin)) * plotW; }
-  function toY(v: number) { return PAD.top + (1 - (v - yMin) / (yMax - yMin)) * plotH; }
+  function toX(v: number) {
+    return PAD.left + ((v - xMin) / (xMax - xMin)) * plotW;
+  }
+  function toY(v: number) {
+    return PAD.top + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+  }
 
   // Grid lines
   ctx.strokeStyle = "#2a2a3e";
@@ -115,20 +123,22 @@ function drawPlot() {
 
   // Residual curve — fill the area between 0 and the curve
   ctx.beginPath();
-  ctx.moveTo(toX(wavelength[0]), y0);
+  ctx.moveTo(toX(xMin), y0);
   for (let i = 0; i < n; i++) {
-    ctx.lineTo(toX(wavelength[i]), toY(residual[i]));
+    const wl = wavelength[i] ?? xMin;
+    ctx.lineTo(toX(wl), toY(residual[i]!));
   }
-  ctx.lineTo(toX(wavelength[n - 1]), y0);
+  ctx.lineTo(toX(xMax), y0);
   ctx.closePath();
   ctx.fillStyle = "rgba(239, 68, 68, 0.15)";
   ctx.fill();
 
   // Residual line
   ctx.beginPath();
-  ctx.moveTo(toX(wavelength[0]), toY(residual[0]));
+  ctx.moveTo(toX(xMin), toY(residual[0]!));
   for (let i = 1; i < n; i++) {
-    ctx.lineTo(toX(wavelength[i]), toY(residual[i]));
+    const wl = wavelength[i] ?? xMin;
+    ctx.lineTo(toX(wl), toY(residual[i]!));
   }
   ctx.strokeStyle = "#ef4444";
   ctx.lineWidth = 1.5;

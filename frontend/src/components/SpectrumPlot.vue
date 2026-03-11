@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, watch } from "vue";
+import { ref, onMounted, onUnmounted, watch } from "vue";
 import type { SimulationResult } from "../types/simulation";
 
 const props = defineProps<{
@@ -17,9 +17,15 @@ function drawPlot() {
   const ctx = canvas.value?.getContext("2d");
   if (!ctx || !props.result) return;
 
-  const { wavelength, flux } = props.result;
+  const wavelength = props.result.wavelength;
+  const flux = props.result.flux;
   const n = wavelength.length;
   if (n < 2) return;
+
+  const xMin = wavelength[0]!;
+  const xMax = wavelength[n - 1]!;
+  const yMin = Math.min(...flux) - 0.01;
+  const yMax = 1.005;
 
   const W = width.value;
   const H = height.value;
@@ -33,13 +39,12 @@ function drawPlot() {
   const plotW = W - PADDING.left - PADDING.right;
   const plotH = H - PADDING.top - PADDING.bottom;
 
-  const xMin = wavelength[0];
-  const xMax = wavelength[n - 1];
-  const yMin = Math.min(...flux) - 0.01;
-  const yMax = 1.005;
-
-  function toX(v: number) { return PADDING.left + ((v - xMin) / (xMax - xMin)) * plotW; }
-  function toY(v: number) { return PADDING.top + (1 - (v - yMin) / (yMax - yMin)) * plotH; }
+  function toX(v: number) {
+    return PADDING.left + ((v - xMin) / (xMax - xMin)) * plotW;
+  }
+  function toY(v: number) {
+    return PADDING.top + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+  }
 
   // Grid
   ctx.strokeStyle = "#333";
@@ -84,9 +89,10 @@ function drawPlot() {
 
   // Spectrum line
   ctx.beginPath();
-  ctx.moveTo(toX(wavelength[0]), toY(flux[0]));
+  ctx.moveTo(toX(xMin), toY(flux[0] ?? 0));
   for (let i = 1; i < n; i++) {
-    ctx.lineTo(toX(wavelength[i]), toY(flux[i]));
+    const wl = wavelength[i] ?? xMin;
+    ctx.lineTo(toX(wl), toY(flux[i] ?? 0));
   }
   ctx.strokeStyle = "#42b883";
   ctx.lineWidth = 2;
