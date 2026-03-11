@@ -13,6 +13,11 @@ const router = createRouter({
       name: "advanced",
       component: () => import("./pages/AdvancedModel.vue"),
     },
+    {
+      path: "/stochastic",
+      name: "stochastic",
+      component: () => import("./pages/StochasticModel.vue"),
+    },
   ],
 });
 

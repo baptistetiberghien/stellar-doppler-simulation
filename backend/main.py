@@ -5,9 +5,16 @@ FastAPI application — Stellar Doppler Simulation backend.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .models.params import AdvancedSimulationParams, SimulationParams, SimulationResult
+from .models.params import (
+    AdvancedSimulationParams,
+    MultiSpotParams,
+    MultiSpotResult,
+    SimulationParams,
+    SimulationResult,
+)
 from .physics.simulation import run_simulation
 from .physics.simulation_advanced import run_advanced_simulation
+from .physics.simulation_multispot import run_multispot_simulation
 
 app = FastAPI(
     title="Stellar Doppler Simulation",
@@ -30,3 +37,8 @@ async def simulate(params: SimulationParams) -> SimulationResult:
 @app.post("/simulate-advanced", response_model=SimulationResult)
 async def simulate_advanced(params: AdvancedSimulationParams) -> SimulationResult:
     return run_advanced_simulation(params)
+
+
+@app.post("/simulate-multispot", response_model=MultiSpotResult)
+async def simulate_multispot(params: MultiSpotParams) -> MultiSpotResult:
+    return run_multispot_simulation(params)

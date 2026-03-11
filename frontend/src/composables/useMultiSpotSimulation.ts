@@ -1,16 +1,16 @@
 import { reactive, ref, watch, nextTick, type Ref } from "vue";
 import {
-  DEFAULT_ADVANCED_PARAMS,
-  type AdvancedSimulationParams,
-  type SimulationResult,
+  DEFAULT_MULTISPOT_PARAMS,
+  type MultiSpotParams,
+  type MultiSpotResult,
 } from "../types/simulation";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
-export function useAdvancedSimulation() {
-  const params = reactive<AdvancedSimulationParams>({ ...DEFAULT_ADVANCED_PARAMS });
-  const result: Ref<SimulationResult | null> = ref(null);
-  const refSpectrum: Ref<SimulationResult | null> = ref(null);
+export function useMultiSpotSimulation() {
+  const params = reactive<MultiSpotParams>({ ...DEFAULT_MULTISPOT_PARAMS });
+  const result: Ref<MultiSpotResult | null> = ref(null);
+  const refSpectrum: Ref<MultiSpotResult | null> = ref(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -29,7 +29,7 @@ export function useAdvancedSimulation() {
     error.value = null;
 
     try {
-      const res = await fetch(`${API_URL}/simulate-advanced`, {
+      const res = await fetch(`${API_URL}/simulate-multispot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...params }),
@@ -51,8 +51,8 @@ export function useAdvancedSimulation() {
   let refParamsKey = "";
 
   async function fetchRef(): Promise<void> {
-    const { spot_lon_deg: _, ...rest } = params;
-    const key = JSON.stringify({ ...rest, spot_radius: 0.01 });
+    const { rotation_phase: _, ...rest } = params;
+    const key = JSON.stringify({ ...rest, n_spots: 1, min_spot_radius: 0.02, max_spot_radius: 0.02 });
     if (key === refParamsKey && refSpectrum.value) return;
 
     if (refInFlight) {
@@ -63,8 +63,8 @@ export function useAdvancedSimulation() {
     refDirty = false;
 
     try {
-      const refParams = { ...params, spot_radius: 0.01 };
-      const res = await fetch(`${API_URL}/simulate-advanced`, {
+      const refParams = { ...params, n_spots: 1, min_spot_radius: 0.02, max_spot_radius: 0.02 };
+      const res = await fetch(`${API_URL}/simulate-multispot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(refParams),

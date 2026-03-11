@@ -42,3 +42,50 @@ export const DEFAULT_ADVANCED_PARAMS: AdvancedSimulationParams = {
   spot_line_depth: 0.55,
   spot_contrast: 0.65,
 };
+
+// ── Multi-spot stochastic model ──
+
+export interface MultiSpotParams {
+  inclination_deg: number;
+  veq: number;
+  line_depth: number;
+  line_sigma: number;
+  limb_darkening: number;
+  lambda0: number;
+  n_grid: number;
+  rotation_phase: number;
+  n_spots: number;
+  seed: number;
+  min_spot_radius: number;
+  max_spot_radius: number;
+}
+
+export interface SpotInfo {
+  lat_deg: number;
+  lon_deg: number;
+  radius: number;
+  x_proj: number;
+  y_proj: number;
+  visible: boolean;
+}
+
+export interface MultiSpotResult {
+  wavelength: number[];
+  flux: number[];
+  spots: SpotInfo[];
+}
+
+export const DEFAULT_MULTISPOT_PARAMS: MultiSpotParams = {
+  inclination_deg: 60,
+  veq: 10,
+  line_depth: 0.55,
+  line_sigma: 0.005,
+  limb_darkening: 0.6,
+  lambda0: 550,
+  n_grid: 101,
+  rotation_phase: 0,
+  n_spots: 5,
+  seed: 42,
+  min_spot_radius: 0.05,
+  max_spot_radius: 0.18,
+};

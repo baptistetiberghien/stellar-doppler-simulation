@@ -13,6 +13,9 @@ const route = useRoute();
       <router-link to="/advanced" class="nav-link" :class="{ active: route.path === '/advanced' }">
         Advanced model
       </router-link>
+      <router-link to="/stochastic" class="nav-link" :class="{ active: route.path === '/stochastic' }">
+        Stochastic spots
+      </router-link>
     </nav>
     <router-view />
   </div>

@@ -2,11 +2,12 @@
 import { onMounted } from "vue";
 import StarView from "../components/StarView.vue";
 import SpectrumPlot from "../components/SpectrumPlot.vue";
+import ResidualPlot from "../components/ResidualPlot.vue";
 import ControlsPanel from "../components/ControlsPanel.vue";
 import { useSimulation } from "../composables/useSimulation";
 import type { SimulationParams } from "../types/simulation";
 
-const { params, result, loading, error, fetchSimulation } = useSimulation();
+const { params, result, refSpectrum, loading, error, fetchSimulation } = useSimulation();
 
 function onParamUpdate(key: keyof SimulationParams, value: number) {
   (params as Record<string, number>)[key] = value;
@@ -25,7 +26,20 @@ onMounted(fetchSimulation);
     </aside>
 
     <main class="right-col">
-      <SpectrumPlot :result="result" />
+      <div class="section-label">Integrated spectrum</div>
+      <div class="plot-area spectrum-area">
+        <SpectrumPlot :result="result" />
+      </div>
+
+      <div class="section-label">Spectral diagnostics — Residual spectrum</div>
+      <div class="plot-area residual-area">
+        <ResidualPlot :result="result" :refSpectrum="refSpectrum" />
+      </div>
+      <p class="residual-caption">
+        Difference between the current spectrum and a reference without spot.
+        Highlights the spectral perturbation as the spot crosses the visible disk.
+      </p>
+
       <div v-if="loading" class="status-badge loading">Computing…</div>
       <div v-if="error" class="status-badge error">{{ error }}</div>
     </main>
@@ -62,15 +76,42 @@ onMounted(fetchSimulation);
 .right-col {
   flex: 1;
   position: relative;
-  padding: 16px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #556;
+  margin-top: 4px;
+}
+
+.plot-area {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.spectrum-area { flex: 55; }
+.residual-area { flex: 35; }
+
+.residual-caption {
+  font-size: 11px;
+  color: #556;
+  line-height: 1.4;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .status-badge {
   position: absolute;
-  top: 24px;
-  right: 24px;
+  top: 20px;
+  right: 20px;
   padding: 4px 12px;
   border-radius: 4px;
   font-size: 12px;

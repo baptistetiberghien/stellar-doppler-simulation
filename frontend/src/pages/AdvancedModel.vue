@@ -2,11 +2,12 @@
 import { onMounted, ref } from "vue";
 import StarView from "../components/StarView.vue";
 import SpectrumPlot from "../components/SpectrumPlot.vue";
+import ResidualPlot from "../components/ResidualPlot.vue";
 import AdvancedControlsPanel from "../components/AdvancedControlsPanel.vue";
 import { useAdvancedSimulation } from "../composables/useAdvancedSimulation";
 import type { AdvancedSimulationParams } from "../types/simulation";
 
-const { params, result, loading, error, fetchSimulation } = useAdvancedSimulation();
+const { params, result, refSpectrum, loading, error, fetchSimulation } = useAdvancedSimulation();
 
 function onParamUpdate(key: keyof AdvancedSimulationParams, value: number) {
   (params as Record<string, number>)[key] = value;
@@ -27,14 +28,25 @@ onMounted(fetchSimulation);
     </aside>
 
     <main class="right-col">
-      <SpectrumPlot :result="result" />
+      <div class="section-label">Integrated spectrum</div>
+      <div class="plot-area spectrum-area">
+        <SpectrumPlot :result="result" />
+      </div>
+
+      <div class="section-label">Spectral diagnostics — Residual spectrum</div>
+      <div class="plot-area residual-area">
+        <ResidualPlot :result="result" :refSpectrum="refSpectrum" />
+      </div>
+      <p class="residual-caption">
+        Difference between the current spectrum and a reference without spot.
+        Highlights the spectral perturbation as the spot crosses the visible disk.
+      </p>
 
       <!-- Info toggle -->
       <button class="info-toggle" @click="showInfo = !showInfo">
         {{ showInfo ? '✕ Hide model info' : 'ℹ Model explanation' }}
       </button>
 
-      <!-- Explanation panel -->
       <div v-if="showInfo" class="info-panel">
         <h4>Advanced model — spot line depth</h4>
 
@@ -119,11 +131,37 @@ onMounted(fetchSimulation);
 .right-col {
   flex: 1;
   position: relative;
-  padding: 16px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   overflow-y: auto;
+  min-width: 0;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #556;
+  margin-top: 4px;
+}
+
+.plot-area {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.spectrum-area { flex: 55; }
+.residual-area { flex: 35; }
+
+.residual-caption {
+  font-size: 11px;
+  color: #556;
+  line-height: 1.4;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 .info-toggle {
@@ -137,10 +175,9 @@ onMounted(fetchSimulation);
   border-radius: 5px;
   cursor: pointer;
   transition: background 0.15s;
+  flex-shrink: 0;
 }
-.info-toggle:hover {
-  background: #1e3050;
-}
+.info-toggle:hover { background: #1e3050; }
 
 .info-panel {
   background: #111827;
@@ -150,27 +187,13 @@ onMounted(fetchSimulation);
   font-size: 13px;
   line-height: 1.6;
   color: #d1d5db;
+  flex-shrink: 0;
 }
-.info-panel h4 {
-  margin: 0 0 12px;
-  font-size: 15px;
-  color: #93c5fd;
-}
-.info-panel h5 {
-  margin: 12px 0 4px;
-  font-size: 13px;
-  color: #6ea8fe;
-}
-.info-panel p {
-  margin: 4px 0;
-}
-.info-panel ul {
-  margin: 4px 0 4px 18px;
-  padding: 0;
-}
-.info-panel li {
-  margin-bottom: 6px;
-}
+.info-panel h4 { margin: 0 0 12px; font-size: 15px; color: #93c5fd; }
+.info-panel h5 { margin: 12px 0 4px; font-size: 13px; color: #6ea8fe; }
+.info-panel p { margin: 4px 0; }
+.info-panel ul { margin: 4px 0 4px 18px; padding: 0; }
+.info-panel li { margin-bottom: 6px; }
 .info-panel code {
   background: #1a2540;
   padding: 2px 6px;
@@ -195,8 +218,8 @@ onMounted(fetchSimulation);
 
 .status-badge {
   position: absolute;
-  top: 24px;
-  right: 24px;
+  top: 20px;
+  right: 20px;
   padding: 4px 12px;
   border-radius: 4px;
   font-size: 12px;
