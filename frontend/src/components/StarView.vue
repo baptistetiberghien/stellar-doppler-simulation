@@ -16,33 +16,68 @@ const R = 105;
 
 const incRad = computed(() => (props.params.inclination_deg * Math.PI) / 180);
 
-// ── Spot projection (FIXED: matches velocity convention) ──
-// i=0° → pole-on, i=90° → equator-on
-const spotLocal = computed(() => {
+// ── Spot projection (spherical cap → projected polygon) ──
+
+function projectPoint(xs: number, ys: number, zs: number, inc: number) {
+  const xP = xs;
+  const yP = ys * Math.sin(inc) - zs * Math.cos(inc);
+  const zP = ys * Math.cos(inc) + zs * Math.sin(inc);
+  return { x: xP, y: yP, z: zP };
+}
+
+const spotPath = computed(() => {
   const lon = (props.params.spot_lon_deg * Math.PI) / 180;
   const lat = (props.params.spot_lat_deg * Math.PI) / 180;
   const inc = incRad.value;
+  const angRadius = Math.asin(Math.min(props.params.spot_radius, 1.0));
 
-  const xs = Math.cos(lat) * Math.sin(lon);
-  const ys = Math.sin(lat);
-  const zs = Math.cos(lat) * Math.cos(lon);
+  // Spot center on unit sphere (stellar frame)
+  const cx = Math.cos(lat) * Math.sin(lon);
+  const cy = Math.sin(lat);
+  const cz = Math.cos(lat) * Math.cos(lon);
 
-  const xProj = xs;
-  const yProj = ys * Math.sin(inc) - zs * Math.cos(inc);
-  const zProj = ys * Math.cos(inc) + zs * Math.sin(inc);
+  // Build two tangent vectors orthogonal to (cx, cy, cz)
+  let tx: number, ty: number, tz: number;
+  if (Math.abs(cy) < 0.9) {
+    // cross(c, ŷ)
+    tx = cz; ty = 0; tz = -cx;
+  } else {
+    // cross(c, x̂)
+    tx = 0; ty = cz; tz = -cy;
+  }
+  const tLen = Math.sqrt(tx * tx + ty * ty + tz * tz);
+  tx /= tLen; ty /= tLen; tz /= tLen;
+  // Second tangent: cross(c, t1)
+  const ux = cy * tz - cz * ty;
+  const uy = cz * tx - cx * tz;
+  const uz = cx * ty - cy * tx;
 
-  if (zProj <= 0) return null;
-  return {
-    cx: CX + xProj * R,
-    cy: CY - yProj * R,
-    r: props.params.spot_radius * R,
-  };
+  // Sample boundary of the spherical cap
+  const N = 48;
+  const cosA = Math.cos(angRadius);
+  const sinA = Math.sin(angRadius);
+  const pts: { sx: number; sy: number }[] = [];
+
+  for (let i = 0; i < N; i++) {
+    const phi = (2 * Math.PI * i) / N;
+    const cosPhi = Math.cos(phi);
+    const sinPhi = Math.sin(phi);
+
+    // Point on sphere at angular distance angRadius from center
+    const bx = cx * cosA + (tx * cosPhi + ux * sinPhi) * sinA;
+    const by = cy * cosA + (ty * cosPhi + uy * sinPhi) * sinA;
+    const bz = cz * cosA + (tz * cosPhi + uz * sinPhi) * sinA;
+
+    const p = projectPoint(bx, by, bz, inc);
+    if (p.z <= 0) continue;
+    pts.push({ sx: CX + p.x * R, sy: CY - p.y * R });
+  }
+
+  if (pts.length < 3) return null;
+  return "M " + pts.map((p) => `${p.sx.toFixed(1)} ${p.sy.toFixed(1)}`).join(" L ") + " Z";
 });
 
 // ── Projected rotation axis ──
-// Projected length on the sky plane ∝ sin(i):
-//   i=0° (pole-on)    → axis is along LOS → projected length = 0
-//   i=90° (equator-on) → axis in sky plane → full length
 const axisProjLen = computed(() => R * Math.sin(incRad.value));
 const axisExtend = 1.18;
 const axisTop = computed(() => ({
@@ -54,9 +89,8 @@ const axisBot = computed(() => ({
   y: CY + axisProjLen.value * axisExtend,
 }));
 const showAxis = computed(() => props.params.inclination_deg > 3);
-const polePad = 12;
 
-// ── Rotation direction arrow (curved, above the disk) ──
+// ── Rotation direction arrow ──
 const rotR = R + 12;
 const rotArc = computed(() => {
   const a1 = Math.PI * 0.7;
@@ -66,18 +100,16 @@ const rotArc = computed(() => {
   return `M ${s.x} ${s.y} A ${rotR} ${rotR} 0 0 0 ${e.x} ${e.y}`;
 });
 
-// ── Side-view schematic (below the main disk) ──
+// ── Side-view schematic ──
 const svCX = W / 2;
 const svCY = 335;
 const svR = 28;
 const svArrowLen = 55;
 
-// Rotation axis direction in side-view (from center, tilted by i from vertical)
 const svAxisTip = computed(() => ({
   x: svCX + svR * 1.6 * Math.sin(incRad.value),
   y: svCY - svR * 1.6 * Math.cos(incRad.value),
 }));
-// Inclination arc in side-view
 const svIncArc = computed(() => {
   const r = 20;
   const a = incRad.value;
@@ -111,14 +143,15 @@ const svIncLabel = computed(() => {
         <stop offset="55%" stop-color="#ffe066" />
         <stop offset="100%" stop-color="#c68a00" />
       </radialGradient>
+      <!-- Clip to stellar disk so the spot never bleeds outside -->
+      <clipPath id="diskClip">
+        <circle :cx="CX" :cy="CY" :r="R" />
+      </clipPath>
       <marker id="arrRot" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
         <polygon points="0 0, 7 2.5, 0 5" fill="#aaa" />
       </marker>
       <marker id="arrAxis" markerWidth="6" markerHeight="5" refX="5" refY="2.5" orient="auto">
         <polygon points="0 0.5, 6 2.5, 0 4.5" fill="#ccc" />
-      </marker>
-      <marker id="arrBlue" markerWidth="6" markerHeight="5" refX="0" refY="2.5" orient="auto">
-        <polygon points="6 0.5, 0 2.5, 6 4.5" fill="#5599ff" />
       </marker>
     </defs>
 
@@ -126,13 +159,12 @@ const svIncLabel = computed(() => {
     <circle :cx="CX" :cy="CY" :r="R" fill="url(#limbGrad)" />
     <circle :cx="CX" :cy="CY" :r="R" fill="url(#dopplerGrad)" />
 
-    <!-- Rotation axis (dashed, visible only when projected) -->
+    <!-- Rotation axis -->
     <line v-if="showAxis"
       :x1="axisTop.x" :y1="axisTop.y"
       :x2="axisBot.x" :y2="axisBot.y"
       stroke="#ffffffbb" stroke-width="1.5" stroke-dasharray="5,4"
     />
-    <!-- Pole labels -->
     <text v-if="showAxis" :x="axisTop.x + 10" :y="axisTop.y - 2"
       text-anchor="start" class="label-pole">N</text>
     <text v-if="showAxis" :x="axisBot.x + 10" :y="axisBot.y + 4"
@@ -146,10 +178,11 @@ const svIncLabel = computed(() => {
     <text :x="CX - R - 6" :y="CY + 4" text-anchor="end" class="label-blue">← blue</text>
     <text :x="CX + R + 6" :y="CY + 4" text-anchor="start" class="label-red">red →</text>
 
-    <!-- Spot -->
-    <circle v-if="spotLocal"
-      :cx="spotLocal.cx" :cy="spotLocal.cy" :r="spotLocal.r"
-      fill="#222" fill-opacity="0.85" stroke="#111" stroke-width="1"
+    <!-- Spot (projected spherical cap, clipped to disk) -->
+    <path v-if="spotPath"
+      :d="spotPath"
+      clip-path="url(#diskClip)"
+      fill="#222" fill-opacity="0.85" stroke="#111" stroke-width="0.8"
     />
 
     <!-- ════════════ SEPARATOR ════════════ -->
@@ -160,36 +193,28 @@ const svIncLabel = computed(() => {
     </text>
 
     <!-- ════════════ SIDE-VIEW SCHEMATIC ════════════ -->
-    <!-- Star (small circle) -->
     <circle :cx="svCX" :cy="svCY" :r="svR"
       fill="none" stroke="#ffe066" stroke-width="1.5" opacity="0.6" />
 
-    <!-- LOS arrow (observer → star, coming from below) -->
     <line :x1="svCX" :y1="svCY + svArrowLen" :x2="svCX" :y2="svCY + svR + 4"
       stroke="#6ea8fe" stroke-width="1.5" marker-end="url(#arrAxis)" />
     <text :x="svCX + 2" :y="svCY + svArrowLen + 14" text-anchor="middle" class="label-observer">
       Observer
     </text>
-    <!-- LOS label -->
     <text :x="svCX - 14" :y="svCY + svArrowLen - 10" text-anchor="end" class="label-los">LOS</text>
 
-    <!-- Rotation axis (tilted by i from LOS / vertical) -->
     <line :x1="svCX" :y1="svCY"
       :x2="svAxisTip.x" :y2="svAxisTip.y"
       stroke="#ffffffbb" stroke-width="1.5" stroke-dasharray="4,3" />
-    <!-- N label at tip -->
     <text :x="svAxisTip.x + 8" :y="svAxisTip.y - 2" text-anchor="start" class="label-pole-sm">N</text>
 
-    <!-- Inclination arc -->
     <path v-if="svIncArc" :d="svIncArc"
       fill="none" stroke="#6ea8fe" stroke-width="1.2" opacity="0.8" />
-    <!-- Inclination label -->
     <text v-if="params.inclination_deg > 3"
       :x="svIncLabel.x" :y="svIncLabel.y"
       text-anchor="start" class="label-inc">
       i={{ Math.round(params.inclination_deg) }}°
     </text>
-    <!-- Annotation for i=0 -->
     <text v-if="params.inclination_deg <= 3"
       :x="svCX + 30" :y="svCY - 20"
       text-anchor="start" class="label-inc">
