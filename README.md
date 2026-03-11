@@ -66,6 +66,12 @@ The frontend proxies `/simulate` to `http://localhost:8000` via Vite's dev serve
 
 Open http://localhost:5173 in your browser.
 
+## Déploiement (Vercel)
+
+Pour déployer le frontend sur Vercel et le backend sur Railway/Render, suivez le guide **[DEPLOY_VERCEL.md](DEPLOY_VERCEL.md)**.
+
+En résumé : connecter le repo à Vercel, définir **Root Directory** = `frontend`, et ajouter la variable d’environnement `VITE_API_URL` avec l’URL de votre backend.
+
 ## Controls
 
 - **Inclination** — rotation axis tilt (0° = pole-on, 90° = equator-on)
