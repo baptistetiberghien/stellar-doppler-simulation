@@ -19,6 +19,11 @@ export interface SimulationResult {
   spot_visible: boolean;
 }
 
+export interface AdvancedSimulationParams extends SimulationParams {
+  spot_line_depth: number;
+  spot_contrast: number;
+}
+
 export const DEFAULT_PARAMS: SimulationParams = {
   inclination_deg: 60,
   veq: 10,
@@ -30,4 +35,10 @@ export const DEFAULT_PARAMS: SimulationParams = {
   limb_darkening: 0.6,
   lambda0: 550,
   n_grid: 101,
+};
+
+export const DEFAULT_ADVANCED_PARAMS: AdvancedSimulationParams = {
+  ...DEFAULT_PARAMS,
+  spot_line_depth: 0.55,
+  spot_contrast: 0.65,
 };

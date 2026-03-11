@@ -1,92 +1,57 @@
 <script setup lang="ts">
-import { onMounted } from "vue";
-import StarView from "./components/StarView.vue";
-import SpectrumPlot from "./components/SpectrumPlot.vue";
-import ControlsPanel from "./components/ControlsPanel.vue";
-import { useSimulation } from "./composables/useSimulation";
-import type { SimulationParams } from "./types/simulation";
+import { useRoute } from "vue-router";
 
-const { params, result, loading, error, fetchSimulation } = useSimulation();
-
-function onParamUpdate(key: keyof SimulationParams, value: number) {
-  (params as Record<string, number>)[key] = value;
-}
-
-onMounted(fetchSimulation);
+const route = useRoute();
 </script>
 
 <template>
-  <div class="app-layout">
-    <!-- Left column: star + controls -->
-    <aside class="left-col">
-      <div class="star-section">
-        <StarView :params="params" :result="result" />
-      </div>
-      <ControlsPanel :params="params" @update:params="onParamUpdate" />
-    </aside>
-
-    <!-- Right column: spectrum (full height) -->
-    <main class="right-col">
-      <SpectrumPlot :result="result" />
-      <div v-if="loading" class="status-badge loading">Computing…</div>
-      <div v-if="error" class="status-badge error">{{ error }}</div>
-    </main>
+  <div class="app-shell">
+    <nav class="top-nav">
+      <router-link to="/" class="nav-link" :class="{ active: route.path === '/' }">
+        Simple model
+      </router-link>
+      <router-link to="/advanced" class="nav-link" :class="{ active: route.path === '/advanced' }">
+        Advanced model
+      </router-link>
+    </nav>
+    <router-view />
   </div>
 </template>
 
 <style scoped>
-.app-layout {
-  display: flex;
+.app-shell {
   height: 100vh;
   width: 100vw;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: #0f0f1a;
   color: #e0e0e0;
 }
 
-.left-col {
-  width: 320px;
-  min-width: 260px;
+.top-nav {
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
-  border-right: 1px solid #222;
-  overflow-y: auto;
-}
-
-.star-section {
-  flex-shrink: 0;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 0;
   background: #13132a;
-  overflow: hidden;
+  border-bottom: 1px solid #222;
+  padding: 0 12px;
 }
 
-.right-col {
-  flex: 1;
-  position: relative;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-}
-
-.status-badge {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
+.nav-link {
+  padding: 10px 20px;
+  font-size: 13px;
   font-weight: 600;
+  color: #888;
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
 }
-.loading {
-  background: #1e3a5f;
-  color: #93c5fd;
+.nav-link:hover {
+  color: #ccc;
 }
-.error {
-  background: #5f1e1e;
-  color: #fca5a5;
+.nav-link.active {
+  color: #6ea8fe;
+  border-bottom-color: #2563eb;
 }
 </style>

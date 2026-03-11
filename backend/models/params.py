@@ -24,3 +24,10 @@ class SimulationResult(BaseModel):
     spot_x: float | None = None
     spot_y: float | None = None
     spot_visible: bool = False
+
+
+class AdvancedSimulationParams(SimulationParams):
+    """Extended parameters for the advanced model with per-spot line depth."""
+
+    spot_line_depth: float = Field(0.55, ge=0.0, le=1.0, description="Spectral line depth inside the spot")
+    spot_contrast: float = Field(0.65, ge=0.0, le=1.5, description="Photometric brightness of spot relative to photosphere")
